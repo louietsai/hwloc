@@ -68,6 +68,8 @@ struct lstopo_output {
   struct draw_methods *methods;
   unsigned width, height; /* total output size */
   unsigned min_pu_textwidth;
+  char ** kmp_verb_file;
+  unsigned kmp_verb_file_nr;
 };
 
 struct style {
