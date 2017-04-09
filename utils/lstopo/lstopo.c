@@ -39,7 +39,7 @@
 #include "misc.h"
 
 static unsigned int top = 0;
-
+char* id_map_table[100];
 FILE *open_output(const char *filename, int overwrite)
 {
   const char *extn;
@@ -58,6 +58,36 @@ FILE *open_output(const char *filename, int overwrite)
   }
 
   return fopen(filename, "w");
+}
+
+void
+parse_kmp_verbose_file(char *fname)
+{
+  FILE *kmpFile;
+  char line[256];
+  char * pch=NULL;
+  int   os_proc_id;
+  int   thread_id;
+  char   str_thread_id[20];
+  printf ("__FUNCTION__ = %s\n", __FUNCTION__);
+  printf("kmp filename : %s\n",fname);
+  if (!fname)
+    return;
+  kmpFile = fopen(fname, "r");
+  if (!kmpFile)
+    return;
+
+  for (int i=0;i<100;i++)
+          id_map_table[i]=NULL;
+
+  while (fgets(line, sizeof(line), kmpFile)) {
+    pch = NULL;
+    int n = sscanf(line, "%d,%s", &os_proc_id,str_thread_id);
+    id_map_table[os_proc_id]=strdup(str_thread_id);
+  }
+
+  fclose(kmpFile);
+  return;
 }
 
 static hwloc_obj_t insert_task(hwloc_topology_t topology, hwloc_cpuset_t cpuset, const char * name)
@@ -386,6 +416,7 @@ void usage(const char *name, FILE *where)
 		  "                        Set flags during the synthetic topology export\n");
   fprintf (where, "  --ps --top            Display processes within the hierarchy\n");
   fprintf (where, "  --version             Report version and exit\n");
+  fprintf (where, "  --kmp_verb_file out.txt         Input the kmp_affinity verbose output \n");
 }
 
 enum output_format {
@@ -495,6 +526,8 @@ main (int argc, char *argv[])
     loutput.force_orient[i] = LSTOPO_ORIENT_HORIZ;
   loutput.force_orient[HWLOC_OBJ_NUMANODE] = LSTOPO_ORIENT_HORIZ;
 
+  loutput.kmp_verb_file = NULL;
+  loutput.kmp_verb_file_nr = 0;
   /* enable verbose backends */
   putenv("HWLOC_XML_VERBOSE=1");
   putenv("HWLOC_SYNTHETIC_VERBOSE=1");
@@ -706,6 +739,22 @@ main (int argc, char *argv[])
 	  loutput.legend_append = tmp;
 	  loutput.legend_append[loutput.legend_append_nr] = strdup(argv[1]);
 	  loutput.legend_append_nr++;
+	}
+	opt = 1;
+      }
+      else if (!strcmp (argv[0], "--kmp_verb_file")) {
+        printf(" get a kmp file : %s\n",argv[1]);
+	char **tmp;
+	if (argc < 2)
+	  goto out_usagefailure;
+	tmp = realloc(loutput.kmp_verb_file, (loutput.kmp_verb_file_nr+1) * sizeof(*loutput.kmp_verb_file));
+	if (!tmp) {
+	  fprintf(stderr, "Failed to realloc kmp_verb_file, legend ignored.\n");
+	} else {
+	  loutput.kmp_verb_file = tmp;
+	  loutput.kmp_verb_file[loutput.kmp_verb_file_nr] = strdup(argv[1]);
+	  loutput.kmp_verb_file_nr++;
+          parse_kmp_verbose_file(loutput.kmp_verb_file[0]);
 	}
 	opt = 1;
       }
@@ -927,6 +976,10 @@ main (int argc, char *argv[])
   for(i=0; i<loutput.legend_append_nr; i++)
     free(loutput.legend_append[i]);
   free(loutput.legend_append);
+
+  for(i=0; i<loutput.kmp_verb_file_nr; i++)
+    free(loutput.kmp_verb_file[i]);
+  free(loutput.kmp_verb_file);
 
   return EXIT_SUCCESS;
 

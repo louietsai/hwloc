@@ -86,6 +86,8 @@
 #define BRIDGE_G_COLOR 0xff
 #define BRIDGE_B_COLOR 0xff
 
+extern char* id_map_table[100];
+
 unsigned get_textwidth(void *output,
 		       const char *text, unsigned length,
 		       unsigned fontsize)
@@ -486,6 +488,7 @@ lstopo_obj_snprintf(char *text, size_t textlen, hwloc_obj_t obj, int logical)
   const char *indexprefix = logical ? " L#" : " P#";
   char typestr[32];
   char indexstr[32]= "";
+  char threadstr[32]= "";
   char attrstr[256];
   char totmemstr[64] = "";
   int attrlen;
@@ -505,7 +508,16 @@ lstopo_obj_snprintf(char *text, size_t textlen, hwloc_obj_t obj, int logical)
   if (idx != (unsigned)-1 && obj->depth != 0
       && obj->type != HWLOC_OBJ_PCI_DEVICE
       && (obj->type != HWLOC_OBJ_BRIDGE || obj->attr->bridge.upstream_type == HWLOC_OBJ_BRIDGE_HOST))
-    snprintf(indexstr, sizeof(indexstr), "%s%u", indexprefix, idx);
+  {
+    if (!strcmp(typestr, "PU")) {
+        char* str_thread_id = id_map_table[idx];
+        if (str_thread_id != NULL)
+                snprintf(threadstr, sizeof(threadstr), " Thread %s",str_thread_id);
+    }
+
+    snprintf(indexstr, sizeof(indexstr), "%s%u%s", indexprefix, idx,threadstr);
+
+  }
   attrlen = hwloc_obj_attr_snprintf(attrstr, sizeof(attrstr), obj, " ", 0);
   /* display the root total_memory if different from the local_memory (already shown) */
   if (!obj->parent && obj->memory.total_memory > obj->memory.local_memory)
